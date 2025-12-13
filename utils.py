@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from scipy import signal as sp_signal
-
+from scipy import fftpack as sp_fft
 fs = 1000
 
 
@@ -105,3 +105,22 @@ def preprocess_signal(signal, fs=1000, lowcut=0.5, highcut=40):
     signal = resample_signal(signal, 250, fs)
     segments = segment_ecg(signal, fs)
     return signal, segments
+
+
+def autocorrelation(signal):
+    result = sp_signal.correlate(signal, signal,mode='full')
+    result = result[result.size // 2 :]
+    result /= np.max(result)
+    return result
+
+
+def select_sign_coff(result_signal, threshold=0.05):
+    indices = np.where(result_signal > threshold)[0]
+    return result_signal[indices]
+
+def feature_extraction(signal, threshold=1e-5):
+    result = autocorrelation(signal)
+    result = select_sign_coff(result)
+    features = sp_fft.dct(result, norm='ortho')
+    features = features[np.abs(features) > threshold]
+    return features
