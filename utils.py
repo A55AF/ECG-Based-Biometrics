@@ -2,6 +2,7 @@ import os
 import numpy as np
 from scipy import signal as sp_signal
 from scipy import fftpack as sp_fft
+from sklearn.ensemble import RandomForestClassifier
 fs = 1000
 
 
@@ -14,11 +15,37 @@ def read_signal(path):
 
 
 def train():
-    pass
+    train_data = load_train()
+    X, y = [], []
+    for label, signal in train_data.items():
+        _, segments = preprocess_signal(signal)
+        for seg in segments:
+            feats = feature_extraction(seg)[:40]
+            if len(feats) < 40:
+                feats = np.pad(feats, (0, 40 - len(feats)))
+            X.append(feats)
+            y.append(label)
+    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf.fit(X, y)
+    return clf
 
 
-def test():
-    pass
+def test(clf):
+    test_data = load_test()
+    predictions = []
+    for signal in test_data:
+        _, segments = preprocess_signal(signal)
+        seg_preds = []
+        for seg in segments:
+            feats = feature_extraction(seg)[:40]
+            if len(feats) < 40:
+                feats = np.pad(feats, (0, 40 - len(feats)))
+            pred = clf.predict([feats])[0]
+            seg_preds.append(pred)
+        from collections import Counter
+        majority = Counter(seg_preds).most_common(1)[0][0]
+        predictions.append(majority)
+    return predictions
 
 
 def load_train():
