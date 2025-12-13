@@ -46,29 +46,16 @@ def mean_removal(signal):
     return signal - mean
 
 
-def bandpass_filter(signal, lowcut, highcut, fs=1000, N=201):
-    nyquist = fs / 2.0
-    low = lowcut / nyquist
-    high = highcut / nyquist
-
-    if low <= 0 or high >= 1:
+def bandpass_filter(signal, lowcut, highcut, fs=1000, order=4):
+    if lowcut <= 0 or highcut >= fs / 2:
         raise ValueError(
-            f"Invalid cutoffs: low={lowcut}, high={highcut}, nyquist={nyquist}"
+            f"Invalid cutoffs: low={lowcut}, high={highcut}, nyquist={fs/2}"
         )
-    if low >= high:
+    if lowcut >= highcut:
         raise ValueError("Bandpass lowcut must be < highcut")
 
-    if N % 2 == 0:
-        N += 1
-
-    b = sp_signal.firwin(
-        N,
-        [lowcut, highcut],
-        pass_zero=False,
-        fs=fs,
-        window="hamming",
-    )
-    result_signal = sp_signal.filtfilt(b, [1.0], signal)
+    b, a = sp_signal.butter(order, [lowcut, highcut], btype="bandpass", fs=fs)
+    result_signal = sp_signal.filtfilt(b, a, signal)
     return result_signal
 
 
@@ -98,12 +85,13 @@ def segment_ecg(signal, fs, beats_per_segment=4, min_rr_interval=0.4):
     return segments
 
 
-def preprocess_signal(signal, fs=1000, lowcut=0.5, highcut=40):
+def preprocess_signal(signal, fs=1000, lowcut=1, highcut=40):
+    target_fs = 250
     signal = mean_removal(signal)
-    signal = bandpass_filter(signal, lowcut, highcut, fs)
+    signal = resample_signal(signal, target_fs, fs)
+    signal = bandpass_filter(signal, lowcut, highcut, target_fs)
     signal = normalize_signal(signal)
-    signal = resample_signal(signal, 250, fs)
-    segments = segment_ecg(signal, fs)
+    segments = segment_ecg(signal, target_fs)
     return signal, segments
 
 
